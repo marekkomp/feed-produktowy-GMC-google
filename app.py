@@ -11,7 +11,7 @@ ATOM_NS = 'http://www.w3.org/2005/Atom'
 
 def process_feed(input_path: str, output_path: str) -> None:
     """
-    Parse the Shoper XML feed and set all <g:condition> to 'used'.
+    Parse the Shoper XML feed and set all <g:condition> to 'refurbished'.
     For entries without <g:identifier_exists>, insert one with 'no'.
 
     :param input_path: Path to the input XML file
@@ -25,20 +25,17 @@ def process_feed(input_path: str, output_path: str) -> None:
         # Find and update <g:condition>
         cond = entry.find(f'{{{G_NS}}}condition')
         if cond is not None:
-            cond.text = 'used'
+            cond.text = 'refurbished'
         
         # Check for <g:identifier_exists>
         id_exists = entry.find(f'{{{G_NS}}}identifier_exists')
         if id_exists is None:
-            # Create and insert after condition
             new_id_exists = ET.Element(f'{{{G_NS}}}identifier_exists')
             new_id_exists.text = 'no'
             if cond is not None:
-                # preserve element order: insert right after condition
                 idx = list(entry).index(cond)
                 entry.insert(idx + 1, new_id_exists)
             else:
-                # if no condition tag, append at end
                 entry.append(new_id_exists)
         else:
             id_exists.text = 'no'
