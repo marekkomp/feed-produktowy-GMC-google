@@ -1,54 +1,34 @@
+import streamlit as st
+import tempfile
 import xml.etree.ElementTree as ET
-import argparse
 
-# Register namespaces to preserve prefixes in output
-ET.register_namespace('', 'http://www.w3.org/2005/Atom')
-ET.register_namespace('g', 'http://base.google.com/ns/1.0')
+# Import the processing function from feed_processor
+from feed_processor import process_feed
 
-G_NS = 'http://base.google.com/ns/1.0'
-ATOM_NS = 'http://www.w3.org/2005/Atom'
+st.set_page_config(page_title="GMC Feed Refurbished", layout="wide")
+st.title("Shoper XML → Google Merchant Center (refurbished)")
 
+st.write("Prześlij plik XML z Shoper, aby wszystkie produkty oznaczyć jako refurbished i dodać <g:identifier_exists>no</g:identifier_exists>.")
 
-def process_feed(input_path: str, output_path: str) -> None:
-    """
-    Parse the Shoper XML feed and set all <g:condition> to 'refurbished'.
-    For entries without <g:identifier_exists>, insert one with 'no'.
+uploaded_file = st.file_uploader("Wybierz plik XML", type=["xml"] )
 
-    :param input_path: Path to the input XML file
-    :param output_path: Path to save the modified XML file
-    """
-    tree = ET.parse(input_path)
-    root = tree.getroot()
+if uploaded_file is not None:
+    # Zapisujemy do pliku tymczasowego
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as in_tmp:
+        in_tmp.write(uploaded_file.read())
+        in_path = in_tmp.name
 
-    # Iterate through each entry
-    for entry in root.findall(f'{{{ATOM_NS}}}entry'):
-        # Find and update <g:condition>
-        cond = entry.find(f'{{{G_NS}}}condition')
-        if cond is not None:
-            cond.text = 'refurbished'
-        
-        # Check for <g:identifier_exists>
-        id_exists = entry.find(f'{{{G_NS}}}identifier_exists')
-        if id_exists is None:
-            new_id_exists = ET.Element(f'{{{G_NS}}}identifier_exists')
-            new_id_exists.text = 'no'
-            if cond is not None:
-                idx = list(entry).index(cond)
-                entry.insert(idx + 1, new_id_exists)
-            else:
-                entry.append(new_id_exists)
-        else:
-            id_exists.text = 'no'
+    # Przygotowujemy ścieżkę wyjściową
+    out_path = in_path.replace(".xml", "_refurbished.xml")
 
-    # Write out the updated feed
-    tree.write(output_path, encoding='utf-8', xml_declaration=True)
+    # Przetwarzamy
+    process_feed(in_path, out_path)
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process Shoper feed for Google Merchant Center.')
-    parser.add_argument('input', help='Input XML file (Shoper feed)')
-    parser.add_argument('output', help='Output XML file path')
-    args = parser.parse_args()
-
-    process_feed(args.input, args.output)
-    print(f'Processed feed saved to: {args.output}')
+    # Udostępniamy do pobrania
+    with open(out_path, "rb") as f:
+        st.download_button(
+            label="Pobierz zmodyfikowany feed",
+            data=f,
+            file_name="feed_refurbished.xml",
+            mime="application/xml"
+        )
