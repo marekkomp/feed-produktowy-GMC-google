@@ -1,0 +1,2 @@
+streamlit>=1.25.0
+# No additional external dependencies required; uses Python standard library for XML processing
